@@ -77,6 +77,10 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem('vaidik_ai_auth');
+    localStorage.removeItem('vaidik_ai_profile');
+    localStorage.removeItem('vaidik_ai_scans');
+    setProfile(DEFAULT_PROFILE);
+    setScans([]);
     setActiveTab('scan');
   };
 
@@ -223,11 +227,7 @@ export default function App() {
 
               <button
                 id="header-logout-btn"
-                onClick={() => {
-                  if (window.confirm("Are you sure you want to log out of your Vaidik AI account?")) {
-                    handleLogout();
-                  }
-                }}
+                onClick={handleLogout}
                 className="p-1.5 hover:bg-stone-100 rounded-xl text-stone-400 hover:text-rose-500 transition-all cursor-pointer"
                 title="Log Out of your Account"
               >

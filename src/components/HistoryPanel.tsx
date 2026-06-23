@@ -15,6 +15,7 @@ export default function HistoryPanel({ scans, onDeleteScan, onClearAll }: Histor
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState<ItemCategory>('all');
   const [selectedReviewItem, setSelectedReviewItem] = useState<ScanResult | null>(null);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
 
   // Filter scans
   const filteredScans = scans.filter((item) => {
@@ -47,18 +48,39 @@ export default function HistoryPanel({ scans, onDeleteScan, onClearAll }: Histor
               <p className="text-xs text-stone-500 mt-0.5">Explore files of previously identified flora, creatures, and materials</p>
             </div>
             {scans.length > 0 && (
-              <button
-                id="clear-all-history"
-                onClick={() => {
-                  if (window.confirm("Are you absolutely sure you want to delete all search history records? This cannot be undone.")) {
-                    onClearAll();
-                  }
-                }}
-                className="px-3.5 py-1.5 rounded-xl border border-rose-200 text-rose-600 font-semibold text-xs transition-colors hover:bg-rose-50 flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Clear Database Log
-              </button>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                {showConfirmClear ? (
+                  <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 p-1.5 rounded-xl">
+                    <span className="text-[10px] font-bold text-rose-800 px-1">Are you sure?</span>
+                    <button
+                      id="confirm-clear-yes"
+                      onClick={() => {
+                        onClearAll();
+                        setShowConfirmClear(false);
+                      }}
+                      className="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-[10px] font-bold hover:bg-rose-700 cursor-pointer transition-colors"
+                    >
+                      Yes, Clear
+                    </button>
+                    <button
+                      id="confirm-clear-no"
+                      onClick={() => setShowConfirmClear(false)}
+                      className="px-2.5 py-1 bg-stone-200 text-stone-700 rounded-lg text-[10px] font-bold hover:bg-stone-300 cursor-pointer transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    id="clear-all-history"
+                    onClick={() => setShowConfirmClear(true)}
+                    className="px-3.5 py-1.5 rounded-xl border border-rose-200 text-rose-600 font-semibold text-xs transition-colors hover:bg-rose-50 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Clear Database Log
+                  </button>
+                )}
+              </div>
             )}
           </div>
 

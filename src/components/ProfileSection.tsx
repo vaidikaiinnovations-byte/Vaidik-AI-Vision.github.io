@@ -228,11 +228,7 @@ export default function ProfileSection({ profile, onChangeProfile, scans, onLogo
                 </button>
                 <button 
                   id="profile-logout-btn"
-                  onClick={() => {
-                    if (window.confirm("Are you sure you want to log out of your Vaidik AI account?")) {
-                      onLogout();
-                    }
-                  }}
+                  onClick={onLogout}
                   className="px-5 py-2 rounded-xl bg-rose-50 border border-rose-100 hover:bg-rose-100 text-rose-700 font-semibold text-sm transition-colors cursor-pointer"
                 >
                   Log Out

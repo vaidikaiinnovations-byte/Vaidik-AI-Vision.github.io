@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Terminal } from 'lucide-react';
+import { Camera } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -8,7 +8,7 @@ export default function Footer() {
         {/* Right Brand info & Attribution */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white">
-            <Sparkles className="w-4 h-4" />
+            <Camera className="w-4 h-4 text-emerald-100" />
           </div>
           <div className="text-left">
             <p id="footer-logo-text" className="text-sm font-semibold text-stone-800 tracking-wide font-sans">

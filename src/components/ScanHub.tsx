@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Camera, Upload, Sparkles, AlertCircle, Info, HelpCircle, 
   MapPin, Check, Send, RotateCw, RefreshCw, Leaf, ShieldAlert
@@ -56,6 +56,93 @@ export default function ScanHub({ onAddScan }: ScanHubProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Video Camera State parameters
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  const startCamera = async (deviceId?: string) => {
+    try {
+      setErrorMsg(null);
+      // Turn off any prior camera track activity
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      const constraints: MediaStreamConstraints = {
+        video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'environment' }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setIsCameraActive(true);
+
+      // Catalog compatible camera device sensors
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter(d => d.kind === 'videoinput');
+      setCameraDevices(videoInputs);
+      
+      if (!deviceId && videoInputs.length > 0) {
+        const activeTrack = stream.getVideoTracks()[0];
+        const settings = activeTrack?.getSettings();
+        if (settings?.deviceId) {
+          setSelectedCameraId(settings.deviceId);
+        } else {
+          setSelectedCameraId(videoInputs[0].deviceId);
+        }
+      }
+    } catch (err: any) {
+      console.error("Camera configuration failed:", err);
+      setErrorMsg("Camera access failed. Ensure permission is enabled inside browser properties or test uploading an existing photo instead.");
+      setIsCameraActive(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    try {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setImage(dataUrl);
+        setErrorMsg(null);
+        setAnalyzedResult(null);
+        stopCamera();
+      }
+    } catch (err) {
+      console.error("Capture trigger fail:", err);
+      setErrorMsg("Failed to capture picture frame. Please retry or insert files from your local folders.");
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -285,47 +372,153 @@ export default function ScanHub({ onAddScan }: ScanHubProps) {
             ))}
           </div>
 
-          {/* Interactive Drag Drop File Upload Area */}
-          <div 
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            className="border-2 border-dashed border-stone-300 hover:border-emerald-500 bg-white rounded-2xl p-8 text-center transition-all cursor-pointer group shadow-xs hover:bg-emerald-50/10"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <input 
-              ref={fileInputRef}
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              onChange={handleFileChange}
-            />
-            
-            {image ? (
-              <div className="space-y-4 max-w-sm mx-auto">
-                <img src={image} alt="Selected photograph" className="w-full h-48 object-cover rounded-xl shadow-md border border-stone-200" />
-                <div className="flex items-center justify-center gap-2 justify-items-center">
-                  <p className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Photo Loaded!</p>
-                  <button 
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); resetAll(); }}
-                    className="text-xs font-semibold text-rose-500 hover:underline"
-                  >
-                    Remove
-                  </button>
+          {/* Interactive Camera view or Drag Drop File Upload Area */}
+          {isCameraActive ? (
+            <div 
+              div-id="webcam-live-container" 
+              className="bg-stone-900 rounded-2xl overflow-hidden relative shadow-lg text-white border border-stone-800 p-1 space-y-3"
+            >
+              {/* Live video layout with subtle neon guidelines */}
+              <div className="relative h-64 md:h-96 w-full bg-black rounded-xl overflow-hidden flex items-center justify-center">
+                <video 
+                  ref={videoRef}
+                  autoPlay 
+                  playsInline 
+                  className="w-full h-full object-cover"
+                />
+                
+                {/* Decorative retro targeting overlay */}
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <div className="w-48 h-48 rounded-full border-2 border-dashed border-emerald-500/30 animate-pulse flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/40"></div>
+                  </div>
+                  <div className="absolute top-6 left-6 w-4 h-4 border-t-2 border-l-2 border-emerald-500/60 font-mono"></div>
+                  <div className="absolute top-6 right-6 w-4 h-4 border-t-2 border-r-2 border-emerald-500/60 font-mono"></div>
+                  <div className="absolute bottom-6 left-6 w-4 h-4 border-b-2 border-l-2 border-emerald-500/60 font-mono"></div>
+                  <div className="absolute bottom-6 right-6 w-4 h-4 border-b-2 border-r-2 border-emerald-500/60 font-mono"></div>
+                </div>
+
+                <span className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 font-extrabold uppercase tracking-widest text-[9px] shadow-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                  live camera feed
+                </span>
+              </div>
+
+              {/* Camera footer controls container */}
+              <div className="p-3 bg-stone-950 rounded-xl border border-stone-800">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                  
+                  {/* Device Switcher */}
+                  {cameraDevices.length > 1 ? (
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <label htmlFor="camera-device-select" className="text-[10px] uppercase tracking-wider font-extrabold text-stone-400">Sensor Source:</label>
+                      <select
+                        id="camera-device-select"
+                        className="bg-stone-900 border border-stone-700/80 rounded-lg px-2.5 py-1 text-xs text-stone-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                        value={selectedCameraId}
+                        onChange={(e) => {
+                          setSelectedCameraId(e.target.value);
+                          startCamera(e.target.value);
+                        }}
+                      >
+                        {cameraDevices.map((device, idx) => (
+                          <option key={device.deviceId || idx} value={device.deviceId}>
+                            {device.label || `Camera ${idx + 1}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-stone-500">Dual Spectrum Lens Enabled</span>
+                  )}
+
+                  {/* Capturing buttons */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      id="webcam-capture"
+                      onClick={capturePhoto}
+                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:shadow-emerald-900 cursor-pointer"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      Capture Frame
+                    </button>
+                    <button
+                      type="button"
+                      id="webcam-stop"
+                      onClick={stopCamera}
+                      className="px-4 py-2 bg-stone-850 hover:bg-stone-800 text-stone-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Close Camera
+                    </button>
+                  </div>
+
                 </div>
               </div>
-            ) : (
-              <div className="space-y-4 py-6">
-                <div className="w-16 h-16 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center mx-auto group-hover:scale-105 transition-transform text-stone-400 group-hover:text-emerald-600 shadow-xs">
-                  <Upload className="w-7 h-7" />
+            </div>
+          ) : (
+            <div 
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              className="border-2 border-dashed border-stone-300 hover:border-emerald-500 bg-white rounded-2xl p-8 text-center transition-all cursor-pointer group shadow-xs hover:bg-emerald-50/10"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleFileChange}
+              />
+              
+              {image ? (
+                <div className="space-y-4 max-w-sm mx-auto">
+                  <img src={image} alt="Selected photograph" className="w-full h-48 object-cover rounded-xl shadow-md border border-stone-200" />
+                  <div className="flex items-center justify-center gap-2 justify-items-center">
+                    <p className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Photo Loaded!</p>
+                    <button 
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); resetAll(); }}
+                      className="text-xs font-semibold text-rose-500 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-bold text-stone-700">Click to upload, or drag and drop photo here</p>
-                  <p className="text-xs text-stone-400">Supports JPEG, PNG, WEBP, and HEIC up to 8MB</p>
+              ) : (
+                <div className="space-y-5 py-6">
+                  <div className="w-16 h-16 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center mx-auto group-hover:scale-105 transition-transform text-stone-400 group-hover:text-emerald-600 shadow-xs">
+                    <Upload className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-stone-700">Click to upload, or drag & drop photo here</p>
+                    <p className="text-xs text-stone-400">Supports JPEG, PNG, WEBP, and HEIC up to 8MB</p>
+                  </div>
+                  
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <div className="h-px w-6 bg-stone-200"></div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-stone-400">or use sensor</span>
+                    <div className="h-px w-6 bg-stone-200"></div>
+                  </div>
+
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      id="launch-camera-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startCamera();
+                      }}
+                      className="px-4 py-2 hover:bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5 mx-auto cursor-pointer"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      Take Live Photograph
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Large Action Scan Button */}
           {image && (
