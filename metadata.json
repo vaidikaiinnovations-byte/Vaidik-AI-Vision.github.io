@@ -1,5 +1,5 @@
 {
-  "name": "Vaidik AI Vision",
+  "name": "Vaidik Vision AI",
   "description": "An intelligent AI vision assistant that identifies plants, animals, and objects from photos, offering expert care guides and scanning logs.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

@@ -179,7 +179,7 @@ export default function AuthGateway({ onLoginSuccess }: AuthGatewayProps) {
 
           {/* Switch toggle layout */}
           <p className="text-center text-xs text-stone-500 font-medium">
-            {isRegister ? 'Already registered on Vaidik?' : "New to Vaidik AI Vision? "}
+            {isRegister ? 'Already registered on Vaidik?' : "New to Vaidik Vision AI? "}
             <button
               id="auth-toggle-btn"
               onClick={() => {

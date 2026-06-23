@@ -143,7 +143,7 @@ The careTips must be highly customized to the category (e.g. botanical care for 
       }
 
       const promptContext = `
-You are the dedicated AI Expert Conservator and Nature Naturalist, a specialized extension of the 'Vaidik AI Vision Companion'.
+You are the dedicated AI Expert Conservator and Nature Naturalist, a specialized extension of the 'Vaidik Vision AI Companion'.
 The user has scanned a photograph and successfully identified it as:
 - Name: ${item.name}
 - Taxon/Scientific Classification: ${item.scientificName}

@@ -158,7 +158,7 @@ export default function App() {
               </div>
               <div>
                 <span id="header-brand-title" className="text-md font-extrabold text-stone-900 tracking-tight font-sans block leading-none">
-                  Vaidik AI Vision
+                  Vaidik Vision AI
                 </span>
                 <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest block mt-0.5 font-sans">
                   Intelligence & innovation

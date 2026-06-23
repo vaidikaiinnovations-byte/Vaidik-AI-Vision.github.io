@@ -12,7 +12,7 @@ export default function Footer() {
           </div>
           <div className="text-left">
             <p id="footer-logo-text" className="text-sm font-semibold text-stone-800 tracking-wide font-sans">
-              Vaidik AI Vision
+              Vaidik Vision AI
             </p>
             <p className="text-xs text-stone-400">© {new Date().getFullYear()} All rights reserved</p>
           </div>

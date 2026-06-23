@@ -570,7 +570,7 @@ export default function ScanHub({ onAddScan }: ScanHubProps) {
           </div>
 
           <div className="space-y-2">
-            <h3 className="text-lg font-bold text-stone-800">Vaidik AI Vision at Work</h3>
+            <h3 className="text-lg font-bold text-stone-800">Vaidik Vision AI at Work</h3>
             <p className="text-xs font-bold text-emerald-600 min-h-[1.5rem] tracking-tight transition-all duration-300">
               {LOADING_STEPS[loadingStep]}
             </p>
