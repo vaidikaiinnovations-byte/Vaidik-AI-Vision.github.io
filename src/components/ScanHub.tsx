@@ -39,6 +39,49 @@ const LOADING_STEPS = [
   "Generating care guides and fun trivia..."
 ];
 
+// High performance image resizer and compressor to prevent Payload Too Large issues
+const resizeAndCompressImage = (dataUrl: string, maxDimension = 640, quality = 0.65): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = dataUrl;
+    img.onload = () => {
+      try {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch (err) {
+        console.error("Compression error:", err);
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => {
+      resolve(dataUrl);
+    };
+  });
+};
+
 export default function ScanHub({ onAddScan }: ScanHubProps) {
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory>('all');
   const [image, setImage] = useState<string | null>(null);
@@ -121,7 +164,7 @@ export default function ScanHub({ onAddScan }: ScanHubProps) {
     setIsCameraActive(false);
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (!videoRef.current) return;
     try {
       const video = videoRef.current;
@@ -133,7 +176,8 @@ export default function ScanHub({ onAddScan }: ScanHubProps) {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        setImage(dataUrl);
+        const compressed = await resizeAndCompressImage(dataUrl);
+        setImage(compressed);
         setErrorMsg(null);
         setAnalyzedResult(null);
         stopCamera();
@@ -151,17 +195,24 @@ export default function ScanHub({ onAddScan }: ScanHubProps) {
   };
 
   const processFile = (file: File) => {
-    if (file.size > 8 * 1024 * 1024) {
-      setErrorMsg("Please select a photograph smaller than 8MB.");
+    if (file.size > 15 * 1024 * 1024) {
+      setErrorMsg("Please select a photograph smaller than 15MB.");
       return;
     }
 
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       if (typeof reader.result === 'string') {
-        setImage(reader.result);
-        setErrorMsg(null);
-        setAnalyzedResult(null);
+        try {
+          const compressed = await resizeAndCompressImage(reader.result);
+          setImage(compressed);
+          setErrorMsg(null);
+          setAnalyzedResult(null);
+        } catch (err) {
+          setImage(reader.result);
+          setErrorMsg(null);
+          setAnalyzedResult(null);
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -203,9 +254,14 @@ export default function ScanHub({ onAddScan }: ScanHubProps) {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64 = reader.result as string;
-        setImage(base64);
-        // Trigger identification
-        await runAnalysis(base64, demo.category);
+        try {
+          const compressed = await resizeAndCompressImage(base64);
+          setImage(compressed);
+          await runAnalysis(compressed, demo.category);
+        } catch (comErr) {
+          setImage(base64);
+          await runAnalysis(base64, demo.category);
+        }
       };
       reader.readAsDataURL(blob);
     } catch (err: any) {
@@ -239,7 +295,18 @@ export default function ScanHub({ onAddScan }: ScanHubProps) {
         body: JSON.stringify({ image: imgBase64, category: categoryPreference })
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      const text = await response.text();
+
+      if (!contentType.includes("application/json") || !text.startsWith("{")) {
+        console.error("Non-JSON Server response received:", text);
+        if (response.status === 413) {
+          throw new Error("The captured/uploaded photograph is too large to send over the network. Please choose a smaller file or retake a photo with lower resolution.");
+        }
+        throw new Error(`The AI service returned an unexpected message state (HTML error status ${response.status}). Please choose another photo or try again.`);
+      }
+
+      const data = JSON.parse(text);
       if (!response.ok) {
         throw new Error(data.error || "Server failed to process analysis request.");
       }

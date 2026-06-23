@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Camera, Award, Shield, Milestone, Calendar, Leaf, HelpCircle, Save, CheckCircle } from 'lucide-react';
+import { User, Camera, Award, Shield, Milestone, Calendar, Leaf, HelpCircle, Save, CheckCircle, AlertCircle } from 'lucide-react';
 import { UserProfile, ScanResult } from '../types';
 
 interface ProfileSectionProps {
@@ -22,6 +22,7 @@ export default function ProfileSection({ profile, onChangeProfile, scans, onLogo
   const [profilePicture, setProfilePicture] = useState(profile.profilePicture);
   const [isEditing, setIsEditing] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
+  const [validationError, setValidationError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Group stats based on categories
@@ -63,8 +64,9 @@ export default function ProfileSection({ profile, onChangeProfile, scans, onLogo
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setValidationError('');
     if (file.size > 2 * 1024 * 1024) {
-      alert("Image is too large. Please select a photo smaller than 2MB.");
+      setValidationError("Image is too large. Please select a photo smaller than 2MB.");
       return;
     }
 
@@ -78,8 +80,9 @@ export default function ProfileSection({ profile, onChangeProfile, scans, onLogo
   };
 
   const handleSave = () => {
+    setValidationError('');
     if (!name.trim()) {
-      alert("Name is required");
+      setValidationError("Name is required");
       return;
     }
 
@@ -243,6 +246,13 @@ export default function ProfileSection({ profile, onChangeProfile, scans, onLogo
           <div className="mt-4 p-3 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-semibold flex items-center gap-2 border border-emerald-100">
             <CheckCircle className="w-4 h-4 text-emerald-600" />
             {statusMsg}
+          </div>
+        )}
+
+        {validationError && (
+          <div className="mt-4 p-3 rounded-lg bg-rose-50 text-rose-800 text-xs font-semibold flex items-center gap-2 border border-rose-100 animate-fade-in">
+            <AlertCircle className="w-4 h-4 text-rose-600" />
+            {validationError}
           </div>
         )}
 

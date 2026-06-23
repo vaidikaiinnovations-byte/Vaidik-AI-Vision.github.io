@@ -6,6 +6,49 @@ import { createServer as createViteServer } from "vite";
 
 dotenv.config();
 
+// Auto-retrying resilient helper for Gemini API with model-switching and backoff to avoid 503 errors
+async function generateContentWithRetry(ai: any, params: any, maxRetries = 3) {
+  let delay = 1000;
+  let lastError: any = null;
+  const modelsToTry = [params.model || "gemini-3.5-flash", "gemini-flash-latest"];
+
+  for (const model of modelsToTry) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const config = { ...params, model };
+        const response = await ai.models.generateContent(config);
+        if (response) {
+          return response;
+        }
+      } catch (error: any) {
+        lastError = error;
+        const errMsg = (error.message || "").toLowerCase();
+        const isRateLimitedOrBusy = 
+          errMsg.includes("503") || 
+          errMsg.includes("unavailable") || 
+          errMsg.includes("demand") || 
+          errMsg.includes("limit") || 
+          errMsg.includes("busy") || 
+          errMsg.includes("overload") ||
+          errMsg.includes("quota");
+
+        if (isRateLimitedOrBusy && attempt < maxRetries) {
+          console.warn(`[Gemini API] 503/Busy response on model ${model} (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay *= 1.5;
+          continue;
+        }
+        // If it's a general non-transient error (e.g., API key invalid), or we are out of retries for this model,
+        // move to try the fallback model
+        break;
+      }
+    }
+    // Reset delay for backup model
+    delay = 1000;
+  }
+  throw lastError;
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -73,7 +116,7 @@ Respond with a complete, structured, neat JSON response containing details about
 The careTips must be highly customized to the category (e.g. botanical care for plants, wellness/behavioral handling for animals, or preservation/safety guidelines for things).
 `;
 
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(ai, {
         model: "gemini-3.5-flash",
         contents: [imagePart, { text: promptText }],
         config: {
@@ -121,7 +164,21 @@ The careTips must be highly customized to the category (e.g. botanical care for 
 
     } catch (e: any) {
       console.error("Express /api/identify error:", e);
-      res.status(500).json({ error: e.message || "An unexpected error occurred during photo identification." });
+      let errorMsg = e.message || "An unexpected error occurred during photo identification.";
+      try {
+        if (errorMsg.trim().startsWith("{")) {
+          const parsed = JSON.parse(errorMsg.trim());
+          if (parsed.error && parsed.error.message) {
+            errorMsg = parsed.error.message;
+          }
+        }
+      } catch (_) {}
+
+      if (errorMsg.includes("demands") || errorMsg.includes("demand") || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
+        errorMsg = "The Gemini AI model is currently experiencing temporary high demand/overload. Please click 'Reset and Retry' in a few seconds to scan again!";
+      }
+
+      res.status(500).json({ error: errorMsg });
     }
   });
 
@@ -157,7 +214,7 @@ ${messages.map(m => `${m.sender === 'user' ? 'User' : 'Assistant'}: ${m.text}`).
 Task: Formulate a highly informative, expert, and practical response directly answering the user's last block: "${latestMsg.text}". Focus on botanical science secrets, biological behavior habits, or technical preservation/maintenance instructions depending on the item type. Keep it formatted nicely in professional markdown snippets.
 `;
 
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(ai, {
         model: "gemini-3.5-flash",
         contents: promptContext,
       });
@@ -167,7 +224,21 @@ Task: Formulate a highly informative, expert, and practical response directly an
 
     } catch (e: any) {
       console.error("Express /api/chat error:", e);
-      res.status(500).json({ error: e.message || "Could not generate follow-up care advice right now." });
+      let errorMsg = e.message || "Could not generate follow-up care advice right now.";
+      try {
+        if (errorMsg.trim().startsWith("{")) {
+          const parsed = JSON.parse(errorMsg.trim());
+          if (parsed.error && parsed.error.message) {
+            errorMsg = parsed.error.message;
+          }
+        }
+      } catch (_) {}
+
+      if (errorMsg.includes("demands") || errorMsg.includes("demand") || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
+        errorMsg = "The Gemini AI model is currently experiencing temporary high demand/overload. Please click 'Send message' again in a few seconds!";
+      }
+
+      res.status(500).json({ error: errorMsg });
     }
   });
 
